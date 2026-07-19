@@ -1,0 +1,57 @@
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch.actions import ExecuteProcess, LogInfo
+from launch.substitutions import LaunchConfiguration, TextSubstitution
+import os
+
+def generate_launch_description():
+    # Путь к конфиг файлу
+    config_file = os.path.join(
+        '/ros2_ws', 'install', 'first_launchfile_bringup', 'share', 
+        'first_launchfile_bringup', 'config', 'turtlesim_params.yaml'
+    )
+    
+    # Альтернативный путь, если файл не найден
+    if not os.path.exists(config_file):
+        config_file = '/ros2_ws/src/first_launchfile_bringup/config/turtlesim_params.yaml'
+    
+    return LaunchDescription([
+        # Лог информации о запуске
+        LogInfo(msg=['Starting turtlesim node with config: ', config_file]),
+        
+        # Turtlesim node
+        Node(
+            package='turtlesim',
+            executable='turtlesim_node',
+            name='turtlesim_node',
+            parameters=[config_file] if os.path.exists(config_file) else [],
+            output='screen',
+            emulate_tty=True,
+            prefix=['stdbuf -oL -eL'],
+        ),
+        
+        # Turtle Manager node
+        Node(
+            package='my_cpp_pkg',
+            executable='turtle_manager_logging',
+            name='turtle_manager',
+            parameters=[{
+                'target_turtle_count': 5,
+                'spawn_interval_seconds': 1,
+                'auto_replace_enabled': True
+            }],
+            output='screen',
+            emulate_tty=True,
+            prefix=['stdbuf -oL -eL'],
+        ),
+        
+        # Turtle Driver node
+        Node(
+            package='my_cpp_pkg',
+            executable='turtle_driver_logging',
+            name='turtle_driver',
+            output='screen',
+            emulate_tty=True,
+            prefix=['stdbuf -oL -eL'],
+        ),
+    ])

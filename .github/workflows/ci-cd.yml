@@ -1,0 +1,126 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Job 1: Lint and Format Check
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install ROS2
+      run: |
+        sudo apt update
+        sudo apt install -y software-properties-common
+        sudo add-apt-repository universe
+        sudo apt update
+        sudo apt install -y curl gnupg2 lsb-release
+        sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+        sudo apt update
+        sudo apt install -y ros-humble-ros-base
+    
+    - name: Run linter
+      run: |
+        sudo apt install -y clang-tidy cppcheck
+        find . -name "*.cpp" -o -name "*.hpp" | xargs cppcheck --error-exitcode=1 --enable=all --suppress=missingIncludeSystem
+    
+    - name: Check formatting (if using clang-format)
+      run: |
+        sudo apt install -y clang-format-14
+        find . -name "*.cpp" -o -name "*.hpp" | xargs clang-format-14 --dry-run --Werror
+
+  # Job 2: Build and Test
+  build-and-test:
+    runs-on: ubuntu-22.04
+    needs: lint
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: |
+        docker build -t turtles_app:test .
+    
+    - name: Run unit tests
+      run: |
+        docker run --rm turtles_app:test bash -c "cd /ros2_ws && colcon test --packages-select my_robot_package && colcon test-result"
+    
+    - name: Run integration tests
+      run: |
+        docker-compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from test-runner
+    
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs
+        path: logs/
+
+  # Job 3: Security Scan
+  security-scan:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: turtles_app:test
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Run Docker Scout
+      run: |
+        docker scout quickview turtles_app:test
+
+  # Job 4: Deploy (only on main branch)
+  deploy:
+    runs-on: ubuntu-22.04
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+    
+    - name: Deploy to production
+      run: |
+        # Пример для удаленного развертывания через SSH
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
+        chmod 600 deploy_key
+        
+        ssh -o StrictHostKeyChecking=no -i deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ENDSSH'
+          cd /opt/turtles-app
+          docker-compose pull
+          docker-compose up -d --force-recreate
+          docker system prune -f
+        ENDSSH

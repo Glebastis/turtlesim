@@ -1,0 +1,11 @@
+<launch>
+    <node pkg="turtlesim" exec="turtlesim_node" name="turtlesim_node">
+        <param from="$(find-pkg-share first_launchfile_bringup)/config/turtlesim_params.yaml" />
+    </node>
+    <node pkg="my_cpp_pkg" exec="turtle_manager_logging" name="turtle_manager">
+        <param from="$(find-pkg-share first_launchfile_bringup)/config/turtlesim_params.yaml" />
+    </node>
+    <node pkg="my_cpp_pkg" exec="turtle_driver_logging" name="turtle_driver">
+        <param from="$(find-pkg-share first_launchfile_bringup)/config/turtlesim_params.yaml" />
+    </node>
+</launch>

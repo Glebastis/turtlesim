@@ -1,0 +1,24 @@
+FROM ros:humble-ros-base
+
+# Install test dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pytest \
+    python3-pytest-cov \
+    python3-ros-testing \
+    ros-humble-ros2cli-test-interfaces \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /ros2_ws
+
+# Copy source code
+COPY . src/my_robot_package/
+
+# Build with tests
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build --packages-select my_robot_package --cmake-args -DBUILD_TESTING=ON
+
+# Run tests
+CMD . /opt/ros/humble/setup.sh && \
+    . install/setup.sh && \
+    colcon test --packages-select my_robot_package --event-handlers console_direct+ && \
+    colcon test-result --all --verbose

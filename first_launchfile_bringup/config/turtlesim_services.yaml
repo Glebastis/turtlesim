@@ -1,0 +1,25 @@
+/clear:
+  std_srvs/srv/Empty: 
+    args: null
+    return: null
+
+/reset:
+  std_srvs/srv/Empty: 
+    args: null
+    return: null
+
+/kill:
+  turtlesim/srv/Kill:
+    args:
+      name: string
+    return: null
+
+/spawn:
+  turtlesim/srv/Spawn:
+    args:
+      x: float32
+      y: float32
+      theta: float32
+      name: float32
+    return: 
+      name: string

@@ -1,0 +1,4 @@
+/turtle_manager:
+  ros__parameters:
+    target_turtle_count_: 6
+    spawn_interval_seconds_: 2

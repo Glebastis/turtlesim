@@ -1,0 +1,13 @@
+# Сгенерированные файлы сборки ROS 2
+build/
+install/
+log/
+
+# Файлы Python (если используете Python)
+__pycache__/
+*.pyc
+
+# Файлы IDE и ОС (опционально)
+.vscode/
+.idea/
+.DS_Store

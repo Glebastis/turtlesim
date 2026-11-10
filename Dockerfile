@@ -7,24 +7,16 @@ ENV TZ=UTC
 ENV ROS_DOMAIN_ID=42
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://ru.archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list \
+ && sed -i 's|http://security.ubuntu.com/ubuntu/|http://ru.security.ubuntu.com/ubuntu/|g' /etc/apt/sources.list
 # Устанавливаем системные зависимости
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
-    wget \
-    curl \
-    vim \
-    nano \
-    htop \
-    net-tools \
-    iputils-ping \
-    gdb \
-    valgrind \
     libssl-dev \
     libcurl4-openssl-dev \
     libcivetweb-dev \
-    tmux \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
